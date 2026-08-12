@@ -199,7 +199,6 @@
     canvas {
       max-width: 100%;
       height: auto;
-      border: 4px solid #ffffff;
       box-shadow: 0 8px 25px rgba(0,0,0,0.8);
       border-radius: 2px;
     }
@@ -222,7 +221,6 @@
     .modal-overlay img {
       max-width: 100%;
       max-height: 60vh;
-      border: 2px solid #fff;
       box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
 
@@ -363,14 +361,24 @@
       canvas.width = canvasWidth;
       canvas.height = calculatedHeight;
 
+      // 1. 赤背景を描画
       ctx.fillStyle = '#e61919';
       ctx.fillRect(0, 0, canvasWidth, calculatedHeight);
 
+      // 2. 枠線の太さを8pxに設定して明確に描画
+      const borderWidth = 8;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = borderWidth;
+      // 影の影響を受けないように先に描画
+      ctx.strokeRect(borderWidth / 2, borderWidth / 2, canvasWidth - borderWidth, calculatedHeight - borderWidth);
+
+      // 3. テキストの設定
       ctx.font = `${fontSize}px "TamanegiGeki", sans-serif`;
       ctx.fillStyle = color;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
+      // 影の設定
       ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
       ctx.shadowOffsetX = 3;
       ctx.shadowOffsetY = 3;
@@ -378,6 +386,7 @@
 
       const startY = (calculatedHeight / 2) - ((lines.length - 1) * lineHeight / 2);
 
+      // 4. テキストを描画
       lines.forEach((line, index) => {
         const y = startY + (index * lineHeight);
         if (spacing === 0) {
@@ -444,7 +453,6 @@
 
       const file = new File([currentBlob], `slogan_${Date.now()}.png`, { type: 'image/png' });
 
-      // スマホの標準共有ダイアログ（Web Share API）を呼ぶ
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({
@@ -455,7 +463,6 @@
           console.log('共有キャンセル');
         }
       } else {
-        // PCや非対応ブラウザの場合は新しいタブで画像を開く（または自動保存）
         const link = document.createElement('a');
         link.download = `slogan_${Date.now()}.png`;
         link.href = URL.createObjectURL(currentBlob);
