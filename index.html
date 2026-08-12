@@ -10,6 +10,7 @@
       src: url('./玉ねぎ楷書激無料版v7改.ttf') format('truetype');
       font-weight: normal;
       font-style: normal;
+      font-display: block;
     }
 
     * { box-sizing: border-box; }
@@ -128,11 +129,11 @@
     input[type="range"] {
       accent-color: #e61919;
       cursor: pointer;
-      width: 90px;
+      width: 80px;
     }
 
     input[type="number"] {
-      width: 55px;
+      width: 50px;
       padding: 4px;
       font-size: 13px;
       border: 2px solid #444;
@@ -289,6 +290,12 @@
           </div>
 
           <div class="control-item">
+            <label for="textSkew">斜め:</label>
+            <input type="range" id="textSkew" min="-30" max="30" value="-12">
+            <div><input type="number" id="textSkewInput" min="-30" max="30" value="-12"> °</div>
+          </div>
+
+          <div class="control-item">
             <label>文字の色:</label>
             <div class="color-picker">
               <label class="color-btn">
@@ -329,6 +336,8 @@
     const textSizeInput = document.getElementById('textSizeInput');
     const letterSpacing = document.getElementById('letterSpacing');
     const letterSpacingInput = document.getElementById('letterSpacingInput');
+    const textSkew = document.getElementById('textSkew');
+    const textSkewInput = document.getElementById('textSkewInput');
     const colorRadios = document.querySelectorAll('input[name="textColor"]');
     const downloadBtn = document.getElementById('downloadBtn');
     const canvas = document.getElementById('posterCanvas');
@@ -341,18 +350,31 @@
 
     let currentBlob = null;
 
-    document.fonts.ready.then(() => {
-      drawPoster();
-    });
+    // 初回のフォント読み込みを確実に完了させてから初期描画
+    async function initFontAndDraw() {
+      try {
+        const font = new FontFace('TamanegiGeki', 'url(./玉ねぎ楷書激無料版v7改.ttf)');
+        await font.load();
+        document.fonts.add(font);
+        drawPoster();
+      } catch (err) {
+        console.error('Font load error:', err);
+        // 万が一エラーが起きてもフォント準備完了イベントでリトライ
+        document.fonts.ready.then(drawPoster);
+      }
+    }
+
+    initFontAndDraw();
 
     function drawPoster() {
       const text = userInput.value || '文字を入力';
       const fontSize = parseInt(textSize.value, 10);
       const spacing = parseInt(letterSpacing.value, 10);
+      const skewDeg = parseInt(textSkew.value, 10);
       const color = document.querySelector('input[name="textColor"]:checked').value;
 
       const lines = text.split('\n');
-      const lineHeight = fontSize * 1.25;
+      const lineHeight = fontSize * 1.3;
 
       const canvasWidth = 1000;
       const minHeight = 220;
@@ -365,18 +387,24 @@
       ctx.fillStyle = '#e61919';
       ctx.fillRect(0, 0, canvasWidth, calculatedHeight);
 
-      // 2. 枠線の太さを8pxに設定して明確に描画
+      // 2. 白枠描画（太さ 8px）
       const borderWidth = 8;
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = borderWidth;
-      // 影の影響を受けないように先に描画
       ctx.strokeRect(borderWidth / 2, borderWidth / 2, canvasWidth - borderWidth, calculatedHeight - borderWidth);
 
-      // 3. テキストの設定
+      // 3. テキスト描画設定
       ctx.font = `${fontSize}px "TamanegiGeki", sans-serif`;
       ctx.fillStyle = color;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
+
+      const startY = (calculatedHeight / 2) - ((lines.length - 1) * lineHeight / 2);
+
+      // 4. 文字傾斜（せん断変形）の適用
+      ctx.save();
+      const rad = (skewDeg * Math.PI) / 180;
+      ctx.transform(1, 0, Math.tan(rad), 1, 0, 0);
 
       // 影の設定
       ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
@@ -384,9 +412,7 @@
       ctx.shadowOffsetY = 3;
       ctx.shadowBlur = 4;
 
-      const startY = (calculatedHeight / 2) - ((lines.length - 1) * lineHeight / 2);
-
-      // 4. テキストを描画
+      // 5. テキストを描画
       lines.forEach((line, index) => {
         const y = startY + (index * lineHeight);
         if (spacing === 0) {
@@ -406,6 +432,8 @@
           });
         }
       });
+
+      ctx.restore();
     }
 
     userInput.addEventListener('input', (e) => {
@@ -431,6 +459,17 @@
     letterSpacingInput.addEventListener('input', (e) => {
       if (e.target.value !== '') {
         letterSpacing.value = e.target.value;
+        drawPoster();
+      }
+    });
+
+    textSkew.addEventListener('input', (e) => {
+      textSkewInput.value = e.target.value;
+      drawPoster();
+    });
+    textSkewInput.addEventListener('input', (e) => {
+      if (e.target.value !== '') {
+        textSkew.value = e.target.value;
         drawPoster();
       }
     });
