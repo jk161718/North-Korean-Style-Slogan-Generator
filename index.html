@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -204,7 +205,7 @@
       border-radius: 2px;
     }
 
-    /* 画像モーダル（長押し保存用） */
+    /* モーダル表示 */
     .modal-overlay {
       display: none;
       position: fixed;
@@ -221,24 +222,33 @@
 
     .modal-overlay img {
       max-width: 100%;
-      max-height: 70vh;
+      max-height: 60vh;
       border: 2px solid #fff;
       box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
 
-    .modal-note {
+    .modal-actions {
+      display: flex;
+      gap: 10px;
       margin-top: 15px;
-      font-size: 14px;
+    }
+
+    .action-btn {
+      background: #e61919;
       color: #fff;
-      text-align: center;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
     }
 
     .modal-close-btn {
-      margin-top: 15px;
       background: #444;
       color: #fff;
       border: none;
-      padding: 8px 20px;
+      padding: 10px 20px;
       border-radius: 20px;
       font-size: 14px;
       cursor: pointer;
@@ -306,11 +316,13 @@
     </div>
   </div>
 
-  <!-- スマホ保存用ポップアップ -->
+  <!-- ポップアップモーダル -->
   <div class="modal-overlay" id="modalOverlay">
     <img id="resultImage" src="" alt="生成画像">
-    <p class="modal-note">画像を長押しして「"写真"に追加」または「保存」を選択してください</p>
-    <button class="modal-close-btn" id="modalCloseBtn">閉じる</button>
+    <div class="modal-actions">
+      <button class="action-btn" id="shareBtn">画像を保存・共有</button>
+      <button class="modal-close-btn" id="modalCloseBtn">閉じる</button>
+    </div>
   </div>
 
   <script>
@@ -327,9 +339,11 @@
 
     const modalOverlay = document.getElementById('modalOverlay');
     const resultImage = document.getElementById('resultImage');
+    const shareBtn = document.getElementById('shareBtn');
     const modalCloseBtn = document.getElementById('modalCloseBtn');
 
-    // フォント読み込み完了を待って描画
+    let currentBlob = null;
+
     document.fonts.ready.then(() => {
       drawPoster();
     });
@@ -343,7 +357,6 @@
       const lines = text.split('\n');
       const lineHeight = fontSize * 1.25;
 
-      // 看板のサイズ決定
       const canvasWidth = 1000;
       const minHeight = 220;
       const calculatedHeight = Math.max(minHeight, lines.length * lineHeight + 80);
@@ -351,29 +364,23 @@
       canvas.width = canvasWidth;
       canvas.height = calculatedHeight;
 
-      // 1. 赤背景を描画
       ctx.fillStyle = '#e61919';
       ctx.fillRect(0, 0, canvasWidth, calculatedHeight);
 
-      // 2. 文字の設定
       ctx.font = `${fontSize}px "TamanegiGeki", sans-serif`;
       ctx.fillStyle = color;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
-      // 影の設定
       ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
       ctx.shadowOffsetX = 3;
       ctx.shadowOffsetY = 3;
       ctx.shadowBlur = 4;
 
-      // 3. テキストを描画（文字間隔を手動調整）
       const startY = (calculatedHeight / 2) - ((lines.length - 1) * lineHeight / 2);
 
       lines.forEach((line, index) => {
         const y = startY + (index * lineHeight);
-        
-        // 文字間隔（letter-spacing）を1文字ずつ処理
         if (spacing === 0) {
           ctx.fillText(line, canvasWidth / 2, y);
         } else {
@@ -393,7 +400,6 @@
       });
     }
 
-    // イベントリスナー設定
     userInput.addEventListener('input', (e) => {
       charCount.textContent = `${e.target.value.length} / 50`;
       drawPoster();
@@ -421,21 +427,41 @@
       }
     });
 
-    colorRadios.forEach(radio => {
-      radio.addEventListener('change', drawPoster);
+    colorRadios.forEach(radio => radio.addEventListener('change', drawPoster));
+
+    // 保存ボタンの処理
+    downloadBtn.addEventListener('click', () => {
+      canvas.toBlob((blob) => {
+        currentBlob = blob;
+        const imgUrl = URL.createObjectURL(blob);
+        resultImage.src = imgUrl;
+        modalOverlay.classList.add('active');
+      }, 'image/png');
     });
 
-    // 保存処理（軽量・直接変換）
-    downloadBtn.addEventListener('click', () => {
-      const imgData = canvas.toDataURL('image/png');
-      resultImage.src = imgData;
-      modalOverlay.classList.add('active');
+    // 「画像を保存・共有」ボタンを押したときの挙動
+    shareBtn.addEventListener('click', async () => {
+      if (!currentBlob) return;
 
-      // PC用自動ダウンロード
-      const link = document.createElement('a');
-      link.download = `slogan_poster_${Date.now()}.png`;
-      link.href = imgData;
-      link.click();
+      const file = new File([currentBlob], `slogan_${Date.now()}.png`, { type: 'image/png' });
+
+      // スマホの標準共有ダイアログ（Web Share API）を呼ぶ
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: 'スローガン画像',
+          });
+        } catch (err) {
+          console.log('共有キャンセル');
+        }
+      } else {
+        // PCや非対応ブラウザの場合は新しいタブで画像を開く（または自動保存）
+        const link = document.createElement('a');
+        link.download = `slogan_${Date.now()}.png`;
+        link.href = URL.createObjectURL(currentBlob);
+        link.click();
+      }
     });
 
     modalCloseBtn.addEventListener('click', () => {
