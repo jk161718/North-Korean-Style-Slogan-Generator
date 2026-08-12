@@ -129,11 +129,11 @@
     input[type="range"] {
       accent-color: #e61919;
       cursor: pointer;
-      width: 80px;
+      width: 90px;
     }
 
     input[type="number"] {
-      width: 50px;
+      width: 55px;
       padding: 4px;
       font-size: 13px;
       border: 2px solid #444;
@@ -290,12 +290,6 @@
           </div>
 
           <div class="control-item">
-            <label for="textSkew">斜め:</label>
-            <input type="range" id="textSkew" min="-30" max="30" value="-12">
-            <div><input type="number" id="textSkewInput" min="-30" max="30" value="-12"> °</div>
-          </div>
-
-          <div class="control-item">
             <label>文字の色:</label>
             <div class="color-picker">
               <label class="color-btn">
@@ -336,8 +330,6 @@
     const textSizeInput = document.getElementById('textSizeInput');
     const letterSpacing = document.getElementById('letterSpacing');
     const letterSpacingInput = document.getElementById('letterSpacingInput');
-    const textSkew = document.getElementById('textSkew');
-    const textSkewInput = document.getElementById('textSkewInput');
     const colorRadios = document.querySelectorAll('input[name="textColor"]');
     const downloadBtn = document.getElementById('downloadBtn');
     const canvas = document.getElementById('posterCanvas');
@@ -359,7 +351,6 @@
         drawPoster();
       } catch (err) {
         console.error('Font load error:', err);
-        // 万が一エラーが起きてもフォント準備完了イベントでリトライ
         document.fonts.ready.then(drawPoster);
       }
     }
@@ -370,8 +361,10 @@
       const text = userInput.value || '文字を入力';
       const fontSize = parseInt(textSize.value, 10);
       const spacing = parseInt(letterSpacing.value, 10);
-      const skewDeg = parseInt(textSkew.value, 10);
       const color = document.querySelector('input[name="textColor"]:checked').value;
+
+      // 斜め度は -12 度で固定
+      const skewDeg = -12;
 
       const lines = text.split('\n');
       const lineHeight = fontSize * 1.3;
@@ -401,7 +394,7 @@
 
       const startY = (calculatedHeight / 2) - ((lines.length - 1) * lineHeight / 2);
 
-      // 4. 文字傾斜（せん断変形）の適用
+      // 4. 文字傾斜（-12度で固定）の適用
       ctx.save();
       const rad = (skewDeg * Math.PI) / 180;
       ctx.transform(1, 0, Math.tan(rad), 1, 0, 0);
@@ -459,17 +452,6 @@
     letterSpacingInput.addEventListener('input', (e) => {
       if (e.target.value !== '') {
         letterSpacing.value = e.target.value;
-        drawPoster();
-      }
-    });
-
-    textSkew.addEventListener('input', (e) => {
-      textSkewInput.value = e.target.value;
-      drawPoster();
-    });
-    textSkewInput.addEventListener('input', (e) => {
-      if (e.target.value !== '') {
-        textSkew.value = e.target.value;
         drawPoster();
       }
     });
