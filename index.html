@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>北朝鮮風スローガンジェネレーター</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
     @font-face {
       font-family: 'TamanegiGeki';
@@ -196,35 +195,16 @@
       padding: 5px 0;
     }
 
-    .poster-box {
-      width: 100%;
-      max-width: 1100px;
-      min-height: 150px;
-      background-color: #e61919;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 10px;
-      border-radius: 2px;
-      border: 6px solid #ffffff;
+    /* プレビュー用キャンバス */
+    canvas {
+      max-width: 100%;
+      height: auto;
+      border: 4px solid #ffffff;
       box-shadow: 0 8px 25px rgba(0,0,0,0.8);
-      flex-shrink: 0;
+      border-radius: 2px;
     }
 
-    .poster-text {
-      font-family: 'TamanegiGeki', sans-serif;
-      font-size: 40px;
-      color: #ffffff;
-      text-align: center;
-      white-space: pre-wrap;
-      word-break: break-all;
-      line-height: 1.1;
-      letter-spacing: 2px;
-      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
-      width: 100%;
-    }
-
-    /* 生成された画像のモーダル（ポップアップ）表示 */
+    /* 画像モーダル（長押し保存用） */
     .modal-overlay {
       display: none;
       position: fixed;
@@ -270,7 +250,6 @@
       .control-item { width: 100%; justify-content: space-between; }
       input[type="range"] { flex-grow: 1; max-width: 160px; }
       .save-btn { max-width: 100%; margin-top: 5px; font-size: 14px; padding: 10px; }
-      .poster-box { min-height: 180px; border-width: 4px; }
     }
   </style>
 </head>
@@ -292,8 +271,8 @@
         <div class="controls-left">
           <div class="control-item">
             <label for="textSize">サイズ:</label>
-            <input type="range" id="textSize" min="10" max="300" value="40">
-            <div><input type="number" id="textSizeInput" min="10" max="300" value="40"> px</div>
+            <input type="range" id="textSize" min="20" max="200" value="70">
+            <div><input type="number" id="textSizeInput" min="20" max="200" value="70"> px</div>
           </div>
 
           <div class="control-item">
@@ -321,23 +300,21 @@
       </div>
     </div>
 
+    <!-- 描画エリア（Canvas） -->
     <div class="poster-wrapper">
-      <div class="poster-box" id="poster">
-        <div class="poster-text" id="outputText">偉大なる人民万歳！</div>
-      </div>
+      <canvas id="posterCanvas" width="1000" height="300"></canvas>
     </div>
   </div>
 
-  <!-- スマホ保存用ポップアップモーダル -->
+  <!-- スマホ保存用ポップアップ -->
   <div class="modal-overlay" id="modalOverlay">
-    <img id="resultImage" src="" alt="生成された画像">
+    <img id="resultImage" src="" alt="生成画像">
     <p class="modal-note">画像を長押しして「"写真"に追加」または「保存」を選択してください</p>
     <button class="modal-close-btn" id="modalCloseBtn">閉じる</button>
   </div>
 
   <script>
     const userInput = document.getElementById('userInput');
-    const outputText = document.getElementById('outputText');
     const charCount = document.getElementById('charCount');
     const textSize = document.getElementById('textSize');
     const textSizeInput = document.getElementById('textSizeInput');
@@ -345,82 +322,120 @@
     const letterSpacingInput = document.getElementById('letterSpacingInput');
     const colorRadios = document.querySelectorAll('input[name="textColor"]');
     const downloadBtn = document.getElementById('downloadBtn');
-    const poster = document.getElementById('poster');
+    const canvas = document.getElementById('posterCanvas');
+    const ctx = canvas.getContext('2d');
 
     const modalOverlay = document.getElementById('modalOverlay');
     const resultImage = document.getElementById('resultImage');
     const modalCloseBtn = document.getElementById('modalCloseBtn');
 
-    function setInitialFontSize() {
-      if (window.innerWidth <= 768) {
-        updateFontSize(40);
-      } else {
-        updateFontSize(80);
-      }
-    }
-    setInitialFontSize();
+    // フォント読み込み完了を待って描画
+    document.fonts.ready.then(() => {
+      drawPoster();
+    });
 
+    function drawPoster() {
+      const text = userInput.value || '文字を入力';
+      const fontSize = parseInt(textSize.value, 10);
+      const spacing = parseInt(letterSpacing.value, 10);
+      const color = document.querySelector('input[name="textColor"]:checked').value;
+
+      const lines = text.split('\n');
+      const lineHeight = fontSize * 1.25;
+
+      // 看板のサイズ決定
+      const canvasWidth = 1000;
+      const minHeight = 220;
+      const calculatedHeight = Math.max(minHeight, lines.length * lineHeight + 80);
+
+      canvas.width = canvasWidth;
+      canvas.height = calculatedHeight;
+
+      // 1. 赤背景を描画
+      ctx.fillStyle = '#e61919';
+      ctx.fillRect(0, 0, canvasWidth, calculatedHeight);
+
+      // 2. 文字の設定
+      ctx.font = `${fontSize}px "TamanegiGeki", sans-serif`;
+      ctx.fillStyle = color;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      // 影の設定
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+      ctx.shadowOffsetX = 3;
+      ctx.shadowOffsetY = 3;
+      ctx.shadowBlur = 4;
+
+      // 3. テキストを描画（文字間隔を手動調整）
+      const startY = (calculatedHeight / 2) - ((lines.length - 1) * lineHeight / 2);
+
+      lines.forEach((line, index) => {
+        const y = startY + (index * lineHeight);
+        
+        // 文字間隔（letter-spacing）を1文字ずつ処理
+        if (spacing === 0) {
+          ctx.fillText(line, canvasWidth / 2, y);
+        } else {
+          const chars = line.split('');
+          let totalWidth = 0;
+          const charWidths = chars.map(c => ctx.measureText(c).width);
+          totalWidth = charWidths.reduce((a, b) => a + b, 0) + (chars.length - 1) * spacing;
+
+          let startX = (canvasWidth / 2) - (totalWidth / 2);
+
+          chars.forEach((char, i) => {
+            const charW = charWidths[i];
+            ctx.fillText(char, startX + (charW / 2), y);
+            startX += charW + spacing;
+          });
+        }
+      });
+    }
+
+    // イベントリスナー設定
     userInput.addEventListener('input', (e) => {
-      const val = e.target.value;
-      outputText.textContent = val || '文字を入力';
-      charCount.textContent = `${val.length} / 50`;
+      charCount.textContent = `${e.target.value.length} / 50`;
+      drawPoster();
     });
 
-    function updateFontSize(val) {
-      outputText.style.fontSize = val + 'px';
-      textSize.value = val;
-      textSizeInput.value = val;
-    }
-
-    textSize.addEventListener('input', (e) => updateFontSize(e.target.value));
+    textSize.addEventListener('input', (e) => {
+      textSizeInput.value = e.target.value;
+      drawPoster();
+    });
     textSizeInput.addEventListener('input', (e) => {
-      if (e.target.value !== '') updateFontSize(e.target.value);
+      if (e.target.value !== '') {
+        textSize.value = e.target.value;
+        drawPoster();
+      }
     });
 
-    function updateLetterSpacing(val) {
-      outputText.style.letterSpacing = val + 'px';
-      letterSpacing.value = val;
-      letterSpacingInput.value = val;
-    }
-
-    letterSpacing.addEventListener('input', (e) => updateLetterSpacing(e.target.value));
+    letterSpacing.addEventListener('input', (e) => {
+      letterSpacingInput.value = e.target.value;
+      drawPoster();
+    });
     letterSpacingInput.addEventListener('input', (e) => {
-      if (e.target.value !== '') updateLetterSpacing(e.target.value);
+      if (e.target.value !== '') {
+        letterSpacing.value = e.target.value;
+        drawPoster();
+      }
     });
 
     colorRadios.forEach(radio => {
-      radio.addEventListener('change', (e) => {
-        outputText.style.color = e.target.value;
-      });
+      radio.addEventListener('change', drawPoster);
     });
 
-    // 画像ダウンロード／ポップアップ表示処理
+    // 保存処理（軽量・直接変換）
     downloadBtn.addEventListener('click', () => {
-      downloadBtn.innerText = '生成中...';
+      const imgData = canvas.toDataURL('image/png');
+      resultImage.src = imgData;
+      modalOverlay.classList.add('active');
 
-      html2canvas(poster, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: null
-      }).then(canvas => {
-        const imgData = canvas.toDataURL('image/png');
-
-        // スマホなどの自動ダウンロード制限を回避するため、画像モーダルを表示
-        resultImage.src = imgData;
-        modalOverlay.classList.add('active');
-
-        // PC用に一応自動ダウンロード試行
-        const link = document.createElement('a');
-        link.download = `slogan_poster_${Date.now()}.png`;
-        link.href = imgData;
-        link.click();
-
-        downloadBtn.innerText = '画像として保存';
-      }).catch(err => {
-        console.error(err);
-        alert('画像の生成に失敗しました。');
-        downloadBtn.innerText = '画像として保存';
-      });
+      // PC用自動ダウンロード
+      const link = document.createElement('a');
+      link.download = `slogan_poster_${Date.now()}.png`;
+      link.href = imgData;
+      link.click();
     });
 
     modalCloseBtn.addEventListener('click', () => {
